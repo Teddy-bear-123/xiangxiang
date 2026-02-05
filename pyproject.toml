@@ -1,0 +1,85 @@
+[project]
+name = "xiangxiang"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9.0"
+dependencies = [
+    "numpy>=2.0.2",
+    "raylib==5.5.0.3",
+]
+
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+    "python-todo-comments>=0.3.0",
+    "pyright",
+    "mypy>=1.19.1",
+    "ruff",
+    "types-pygments>=2.19.0.20251121",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = true
+reportUnknownMemberType = true
+reportUnknownVariableType = true
+reportUnknownArgumentType = true
+reportUnusedImport = true
+reportUnusedVariable = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+fix = true
+unsafe-fixes = false
+show-fixes = true
+
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors (PEP8)
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # bugbear
+    "UP",   # pyupgrade
+    "SIM",  # simplify
+    "C4",   # comprehensions
+    "ARG",  # unused arguments
+    "PL",   # pylint (modern subset)
+    "RUF",  # Ruff-specific
+]
+
+ignore = [
+    "E203", # whitespace before ':', conflicts with formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"**/*.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_unused_configs = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+pretty = true
+namespace_packages = true
+explicit_package_bases = true
