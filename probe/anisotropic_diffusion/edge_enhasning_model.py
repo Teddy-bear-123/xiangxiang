@@ -232,35 +232,64 @@ def build_diffusion_tensor(
     J_xx: np.ndarray, J_xy: np.ndarray, J_yy: np.ndarray, lam: float
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-      We want a diffusion tensor D whose eigenvectors are the same as J,
-      but with carefully chosen eigenvalues that control how much we diffuse in each direction.
+     Construct the diffusion tensor D from the structure tensor J.
+     D = P A P^-1
 
-    SLOP -> Figure this part out
+     but P^-1 => P^T (due to symmetry?)
 
-    Step 1 — Eigenvalues of J (closed form for a 2x2 symmetric matrix):
-          mu_large = (J_xx + J_yy)/2 + sqrt(((J_xx - J_yy)/2)^2 + J_xy^2)
-          mu_small = (J_xx + J_yy)/2 - sqrt(...)
+     To find the eigenvalues of J for P, we just need to find the trace of the matrix (due to it being a 2x2 symetrical matrix)
 
-          mu_large corresponds to the across-edge direction (max gradient)
-          mu_small corresponds to the along-edge direction
+     We want D such that:
+       - D shares eigenvectors with J  (same edge geometry)
+       - eigenvalues of D control diffusion strength per direction:
+             d_along  = 1        (diffuse freely along edges)
+             d_across = g(μ₊)   (suppress diffusion across edges)
 
-      Step 2 — Assign new eigenvalues for D:
-          d_across = g(mu_large)   small at edges — block diffusion across edges
-          d_along  = 1.0           always 1 — freely diffuse along edges
+    where g is a decreasing edge-stopping function (Perona-Malik):
+             g(s) = 1 / (1 + s/λ)
+     so g → 1 for flat regions (s ≪ λ) and g → 0 at strong edges (s ≫ λ).
 
-          where g(s) = 1 / (1 + s/lambda)  (same Perona-Malik edge stopping)
+       J = | J_xx   J_xy |
+           | J_xy   J_yy |
 
-      Step 3 — Eigenvector of J for mu_large (the across-edge direction):
-          For a 2x2 symmetric matrix, if mu is an eigenvalue then
-          (J - mu*I)v = 0, which gives v = (J_xy, mu - J_xx) (unnormalised).
-          We normalise it and call it eigenvec_across.
-          The along-edge eigenvector is just perpendicular to it.
+    Step 1 — Eigenvalues of J (closed form for a 2x2 symmetric matrix): - https://math.stackexchange.com/questions/4103294/is-there-a-closed-form-expression-for-the-eigenvectors-of-a-2x2-matrix
 
-      Step 4 — Reconstruct D from its eigendecomposition (P Λ P^T):
-          D = d_across * eigenvec_across * eigenvec_across^T
-            + d_along  * eigenvec_along  * eigenvec_along^T
+        μ± = (J_xx + J_yy)/2  ±  √[ ((J_xx - J_yy)/2)² + J_xy² ]
 
-      Since D is symmetric we again only need 3 values: D_xx, D_xy, D_yy.
+        μ+ = larger eigenvalue  →  points in the across-edge direction (max gradient)
+        μ- = smaller eigenvalue →  points in the along-edge direction
+
+    Step 2 - Eigenvectors of J for μ₊
+
+        From (J - μ₊ I)v = 0, the first row gives:
+
+        (J_xx - μ₊) v_x + J_xy v_y = 0
+        =>  v ∝ (J_xy,  μ₊ - J_xx)        [unnormalised]
+
+        Normalise: e_across = v / ‖v‖
+
+        The along-edge eigenvector is simply perpendicular:
+            e_along = (-e_across_y,  e_across_x)
+
+        Special case: if ‖v‖ ≈ 0 (uniform region, J ≈ 0),
+        any direction is valid — we default to e_across = (1, 0).
+
+    Step 3 - Reconstruct D via eigendecomposition  D = P Λ Pᵀ
+
+        D is symmetric, so P⁻¹ = Pᵀ (orthonormal eigenvectors).
+
+        P = [e_across | e_along]      (columns are eigenvectors)
+        Λ = diag(d_across, d_along)
+
+        Expanding D = P Λ Pᵀ as a sum of rank-1 outer products:
+
+        D = d_across · e_across eₐcrossᵀ  +  d_along · e_along e_alongᵀ
+
+    Since D is symmetric we only need three fields:
+
+        D_xx = d_across · (e_across_x)²  +  d_along · (e_along_x)²
+        D_xy = d_across · e_across_x · e_across_y  +  d_along · e_along_x · e_along_y
+        D_yy = d_across · (e_across_y)²  +  d_along · (e_along_y)²
     """
     # Step 1 — eigenvalues of J
     half_trace = (J_xx + J_yy) / 2.0
@@ -312,7 +341,7 @@ def eed_step(channel: np.ndarray, dt: float, lam: float, sigma: float) -> np.nda
 
     We compute D from the structure tensor of the image, but we apply it to the gradients of the actual current channel (that's what we're actually diffusing).
 
-    SLOP -> Figure this out? kainda get it but the part above is weird, read paper
+    SLOP -> Figure this out? kainda get it but the part above is weird
     """
 
     J_xx, J_xy, J_yy = get_structure_tensor(channel, sigma)
